@@ -81,11 +81,17 @@ class RecipeService {
 
         if (imageModel.isPresent()) {
             log.info("Image generation for recipe '{}' started", recipe.name());
-            // Only low-level API available for image models
-            var imagePromptTemplate = PromptTemplate.from(imageForRecipePromptResource.getContentAsString(StandardCharsets.UTF_8))
-						.apply(Map.of("recipe", recipe.name()));
-			var generatedImage = imageModel.get().generate(imagePromptTemplate.text()).content();
-            return new Recipe(recipe, generatedImage.url().toString());
+            try {
+                // Only low-level API available for image models
+                var imagePromptTemplate = PromptTemplate.from(imageForRecipePromptResource.getContentAsString(StandardCharsets.UTF_8))
+                            .apply(Map.of("recipe", recipe.name()));
+                var generatedImage = imageModel.get().generate(imagePromptTemplate.text()).content();
+                return new Recipe(recipe, generatedImage.url().toString());
+            } catch (Exception e) {
+                log.warn("Image generation failed for recipe '{}': {}. Returning recipe without image.", recipe.name(), e.getMessage());
+                // Return recipe without image if image generation fails
+                return recipe;
+            }
         }
 
         return recipe;
