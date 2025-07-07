@@ -1,0 +1,16 @@
+langchain4j:
+  # AI provider configuration
+  azure-open-ai:
+    chat-model:
+      api-key: ${AZURE_OPENAI_API_KEY}
+      deployment-name: gpt-4o
+      endpoint: ${AZURE_OPENAI_ENDPOINT}
+      temperature: 1.0
+    embedding-model:
+      api-key: ${langchain4j.azure-open-ai.chat-model.api-key}
+      deployment-name: text-embedding-ada-002
+      endpoint: ${langchain4j.azure-open-ai.chat-model.endpoint}
+    image-model:
+      api-key: ${langchain4j.azure-open-ai.chat-model.api-key}
+      deployment-name: dall-e-3
+      endpoint: ${langchain4j.azure-open-ai.chat-model.endpoint}
