@@ -14,10 +14,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class RecipeFinderConfiguration {
 
-    // Registers the autoconfigured ChatModel bean for different AI providers under the generic name "chatModel"
-    @Bean
-    ChatModel chatModel(ChatModel chatModel) {
-        return chatModel;
+    // LangChain4j auto-configures ChatModel, but the AiServices expect it to be named "chatModel"
+    // This bean aliases the auto-configured ChatModel to the expected name
+    @Bean("chatModel")
+    ChatModel chatModel(ChatModel autoconfiguredChatModel) {
+        return autoconfiguredChatModel;
     }
 
 
