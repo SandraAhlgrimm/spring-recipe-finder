@@ -1,0 +1,128 @@
+name: Recipe JSON Formatter with User Recipe Preference
+description: Fixes JSON format for recipes while preferring user-provided recipes when they match the request
+model: openai/gpt-4o
+modelParameters:
+  temperature: 0.2
+  max_tokens: 1200
+messages:
+  - role: system
+    content: >
+      You are a helpful assistant that fixes and validates JSON format for recipe responses.
+      Your job is to ensure the recipe JSON follows the exact required structure and formatting rules.
+      
+      As you can see in the provided JSON schema, the ingredients are just a list of strings with quantities.
+      The imageUrl value should always be an empty string "".
+      Ensure the JSON output is always valid without e.g. missing any parentheses, commas, or quotes.
+      
+      IMPORTANT: When the user provides their own recipe that roughly matches the recipe request, 
+      prefer the user's recipe over generating a new one. Adapt and format the user's recipe properly.
+  - role: user
+    content: |
+      Please fix this recipe JSON to match the required format:
+      
+      {{invalidJson}}
+      
+      User provided recipes to consider:
+      {{userRecipes}}
+      
+      Required JSON structure:
+      {
+        "name": "Recipe Name",
+        "description": "Brief description of the dish",
+        "ingredients": ["500g ingredient1", "2 tbsp ingredient2", "1 cup ingredient3"],
+        "instructions": ["Step 1 instruction", "Step 2 instruction", "Step 3 instruction"],
+        "imageUrl": ""
+      }
+      
+      Important formatting rules:
+      - All strings must be properly quoted
+      - Arrays must use square brackets []
+      - Objects must use curly braces {}
+      - No trailing commas
+      - imageUrl must always be an empty string ""
+      - Quantities should be included in the ingredient strings
+      - Instructions should be clear step-by-step actions
+      - If user provided recipes match the request, prefer and format those
+      - Remove any text formatting like uppercase, bold, or italic markers
+      
+      Return only the corrected JSON, no additional text.
+testData:
+  - invalidJson: |
+      {
+        "name": "Pasta Dish"
+        "description": "Simple pasta",
+        "ingredients": ["pasta", "tomatoes"],
+        "instructions": ["Cook pasta"],
+        "imageUrl": null,
+      }
+    userRecipes: |
+      My grandmother's spaghetti recipe:
+      - 400g spaghetti
+      - 500g fresh tomatoes
+      - 3 garlic cloves
+      - Fresh basil
+      - Olive oil
+      Instructions: Boil pasta, sauté garlic, add tomatoes, combine with pasta
+    expected: |
+      {
+        "name": "Grandmother's Spaghetti",
+        "description": "Traditional family spaghetti recipe with fresh tomatoes and basil",
+        "ingredients": ["400g spaghetti", "500g fresh tomatoes", "3 garlic cloves", "Fresh basil leaves", "4 tbsp olive oil"],
+        "instructions": ["Boil pasta according to package directions", "Sauté minced garlic in olive oil", "Add diced fresh tomatoes and cook until soft", "Combine cooked pasta with tomato mixture", "Garnish with fresh basil leaves"],
+        "imageUrl": ""
+      }
+  - invalidJson: |
+      {
+        name: "BEEF STEW",
+        ingredients: [beef, *potatoes*, carrots],
+        instructions: [cook everything],
+      }
+    userRecipes: |
+      My grandmother's BEEF STEW with *potatoes* and carrots
+    expected: |
+      {
+        "name": "Grandmother's Beef Stew",
+        "description": "Traditional hearty beef stew with potatoes and carrots, passed down through generations",
+        "ingredients": ["800g beef chuck, cubed", "4 large potatoes, cubed", "3 large carrots, sliced", "1 large onion, chopped", "2 tbsp oil", "1 liter beef stock", "Salt and pepper to taste"],
+        "instructions": ["Heat oil in a large pot and brown the beef", "Add onions and cook until softened", "Add stock, bring to boil", "Reduce heat and simmer for 1 hour", "Add potatoes and carrots", "Continue cooking for 30 minutes until tender", "Season with salt and pepper"],
+        "imageUrl": ""
+      }
+evaluators:
+  - name: Valid JSON Format
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Check if the output is valid JSON format and contains all required fields:
+        - name (string)
+        - description (string)
+        - ingredients (array of strings with quantities)
+        - instructions (array of strings)
+        - imageUrl (empty string)
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0
+  - name: User Recipe Preference
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Check if the response properly incorporates user-provided recipes when available.
+        If user recipes were provided and match the request, they should be preferred and properly formatted.
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0

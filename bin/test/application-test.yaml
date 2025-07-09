@@ -1,0 +1,4 @@
+spring:
+  autoconfigure:
+    exclude:
+      - dev.langchain4j.community.store.embedding.redis.spring.RedisEmbeddingStoreAutoConfiguration

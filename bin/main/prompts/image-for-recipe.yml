@@ -1,0 +1,89 @@
+name: Recipe Image Generator
+description: Generates high-quality food photography prompts for cookbook-style recipe images
+model: openai/dall-e-3
+modelParameters:
+  size: "1024x1024"
+  quality: "hd"
+  style: "natural"
+messages:
+  - role: system
+    content: >
+      You are a professional food photography AI that creates detailed, appetizing image descriptions for recipes.
+      Your goal is to generate prompts that will result in beautiful, cookbook-quality food photography.
+      Focus on presentation, lighting, and making the dish look delicious and appealing.
+  - role: user
+    content: |
+      Generate a picture of the served meal "{{recipe}}" that could be used for a cookbook.
+      
+      Create a detailed, appetizing image that shows:
+      - The finished dish beautifully plated and presented
+      - Professional food photography lighting
+      - Appropriate garnishes and styling
+      - Complementary background and props
+      - High-quality, restaurant-style presentation
+      
+      The image should make viewers want to cook and eat this dish immediately.
+      Focus on texture, color, and visual appeal while maintaining realism.
+testData:
+  - recipe: "Lemon Garlic Salmon with Asparagus and Rice"
+    expected: >
+      A beautifully plated dish featuring perfectly cooked salmon fillet with golden-brown sear marks, 
+      glistening with lemon garlic butter, served alongside bright green asparagus spears and fluffy white rice. 
+      The plate is white ceramic, garnished with fresh lemon wedges and microgreens. 
+      Professional food photography lighting creates appetizing highlights and shadows. 
+      Shot from a three-quarter angle on a rustic wooden table with subtle background blur.
+  - recipe: "Classic Beef Pasta Bolognese"
+    expected: >
+      A rustic white bowl filled with perfectly al dente pasta coated in rich, chunky Bolognese sauce 
+      with visible ground beef and herbs. Steam rises gently from the hot dish. 
+      Freshly grated Parmesan cheese is sprinkled on top with fresh basil leaves as garnish. 
+      The bowl sits on a checkered cloth napkin with a fork beside it. 
+      Warm, inviting lighting emphasizes the rich red sauce and creates an appetizing, homestyle presentation.
+  - recipe: "Mediterranean Chicken and Rice Bowl"
+    expected: >
+      A colorful, healthy bowl featuring golden-brown seasoned chicken strips over fluffy rice, 
+      surrounded by vibrant roasted vegetables including red bell peppers, zucchini, and cherry tomatoes. 
+      Fresh herbs and a lemon wedge provide garnish. The bowl is ceramic in a neutral tone, 
+      photographed from above to show the beautiful arrangement of ingredients. 
+      Natural lighting highlights the fresh colors and textures of this nutritious meal.
+evaluators:
+  - name: Visual Appeal Description
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Check if the image description creates an appetizing and visually appealing scene:
+        - Describes the dish in an appetizing way
+        - Includes appropriate plating and presentation details
+        - Mentions professional photography elements
+        - Would result in a cookbook-quality image
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0
+  - name: Professional Quality
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Evaluate if the description would produce professional food photography:
+        - Includes lighting and composition details
+        - Mentions appropriate styling and garnishes
+        - Describes textures and colors effectively
+        - Suitable for cookbook or restaurant marketing
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0

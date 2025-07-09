@@ -1,5 +1,6 @@
 package com.example.recipe;
 
+import com.example.PromptConfiguration;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
 import dev.langchain4j.model.chat.ChatModel;
@@ -14,13 +15,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @Service
-class RecipeService {
+public class RecipeService {
 
     private static final Logger log = LoggerFactory.getLogger(RecipeService.class);
 
@@ -30,15 +30,7 @@ class RecipeService {
     private final Optional<ImageModel> imageModel;
     private final EmbeddingStoreIngestor embeddingStoreIngestor;
 	private final ChatModel chatModel;
-
-    @Value("classpath:/prompts/recipe-for-ingredients")
-    private Resource recipeForIngredientsPromptResource;
-
-    @Value("classpath:/prompts/fix-json-response")
-    private Resource fixJsonResponsePromptResource;
-
-	@Value("classpath:/prompts/image-for-recipe")
-    private Resource imageForRecipePromptResource;
+    private final PromptConfiguration promptConfiguration;
 
     @Value("${app.available-ingredients-in-fridge}")
     private List<String> availableIngredientsInFridge;
@@ -46,13 +38,14 @@ class RecipeService {
     // Constructor injection for autoconfigured AI services
     RecipeService(ChatModel chatModel, @Lazy RecipeAiServices.WithTools recipeAiServiceWithTools,
                   @Lazy RecipeAiServices.WithRag recipeAiServiceWithRag, @Lazy RecipeAiServices.WithToolsAndRag recipeAiServiceWithToolsAndRag,
-                  Optional<ImageModel> imageModel, EmbeddingStoreIngestor embeddingStoreIngestor) {
+                  Optional<ImageModel> imageModel, EmbeddingStoreIngestor embeddingStoreIngestor, PromptConfiguration promptConfiguration) {
 		this.chatModel = chatModel;
         this.recipeAiServiceWithTools = recipeAiServiceWithTools;
         this.recipeAiServiceWithRag = recipeAiServiceWithRag;
         this.recipeAiServiceWithToolsAndRag = recipeAiServiceWithToolsAndRag;
         this.imageModel = imageModel;
         this.embeddingStoreIngestor = embeddingStoreIngestor;
+        this.promptConfiguration = promptConfiguration;
 	}
 
     // ETL pipeline orchestrating the flow from raw data sources to a structured vector store
@@ -72,18 +65,58 @@ class RecipeService {
         if (!preferAvailableIngredients && !preferOwnRecipes) {
             recipe = fetchRecipeFor(ingredientsAsString);
         } else if (preferAvailableIngredients && !preferOwnRecipes) {
-            recipe = recipeAiServiceWithTools.find(ingredientsAsString);
+            // Use prompt for available ingredients
+            var availableIngredientsAsString = String.join(",", availableIngredientsInFridge);
+            var userPrompt = PromptTemplate.from(promptConfiguration.getRecipeForAvailableIngredientsUserMessage())
+                    .apply(Map.of(
+                        "ingredients", ingredientsAsString,
+                        "availableIngredientsAtHome", availableIngredientsAsString
+                    ))
+                    .text();
+            recipe = recipeAiServiceWithTools.find(userPrompt);
         } else if (!preferAvailableIngredients && preferOwnRecipes) {
-            recipe = recipeAiServiceWithRag.find(ingredientsAsString);
+            // Use prompt for ingredients with RAG
+            var jsonFormat = """
+                    {
+                      "name": "Recipe Name",
+                      "description": "Brief description of the dish",
+                      "ingredients": ["500g ingredient1", "2 tbsp ingredient2", "1 cup ingredient3"],
+                      "instructions": ["Step 1 instruction", "Step 2 instruction", "Step 3 instruction"],
+                      "imageUrl": ""
+                    }
+                    """;
+            var userPrompt = PromptTemplate.from(promptConfiguration.getRecipeForIngredientsUserMessage())
+                    .apply(Map.of(
+                        "ingredients", ingredientsAsString,
+                        "format", jsonFormat
+                    ))
+                    .text();
+            recipe = recipeAiServiceWithRag.find(userPrompt);
         } else {
-            recipe = recipeAiServiceWithToolsAndRag.find(ingredientsAsString);
+            // Use prompt for ingredients with tools and RAG
+            var jsonFormat = """
+                    {
+                      "name": "Recipe Name",
+                      "description": "Brief description of the dish",
+                      "ingredients": ["500g ingredient1", "2 tbsp ingredient2", "1 cup ingredient3"],
+                      "instructions": ["Step 1 instruction", "Step 2 instruction", "Step 3 instruction"],
+                      "imageUrl": ""
+                    }
+                    """;
+            var userPrompt = PromptTemplate.from(promptConfiguration.getRecipeForIngredientsUserMessage())
+                    .apply(Map.of(
+                        "ingredients", ingredientsAsString,
+                        "format", jsonFormat
+                    ))
+                    .text();
+            recipe = recipeAiServiceWithToolsAndRag.find(userPrompt);
         }
 
         if (imageModel.isPresent()) {
             log.info("Image generation for recipe '{}' started", recipe.name());
             try {
                 // Only low-level API available for image models
-                var imagePromptTemplate = PromptTemplate.from(imageForRecipePromptResource.getContentAsString(StandardCharsets.UTF_8))
+                var imagePromptTemplate = PromptTemplate.from(promptConfiguration.getImageForRecipe())
                             .apply(Map.of("recipe", recipe.name()));
                 var generatedImage = imageModel.get().generate(imagePromptTemplate.text()).content();
                 return new Recipe(recipe, generatedImage.url().toString());
@@ -99,9 +132,22 @@ class RecipeService {
 
     // AiService API without annotations
     private Recipe fetchRecipeFor(String ingredientsAsString) throws IOException {
-        // Prompt templates from the classpath
-        var systemPrompt = fixJsonResponsePromptResource.getContentAsString(StandardCharsets.UTF_8);
-        var userPromptTemplate = recipeForIngredientsPromptResource.getContentAsString(StandardCharsets.UTF_8);
+        // Get system prompt from YAML configuration
+        var systemPrompt = promptConfiguration.getRecipeForIngredientsSystemMessage();
+        
+        // Get user prompt template from YAML configuration
+        var userPromptTemplate = promptConfiguration.getRecipeForIngredientsUserMessage();
+
+        // JSON format schema for structured output
+        var jsonFormat = """
+                {
+                  "name": "Recipe Name",
+                  "description": "Brief description of the dish",
+                  "ingredients": ["500g ingredient1", "2 tbsp ingredient2", "1 cup ingredient3"],
+                  "instructions": ["Step 1 instruction", "Step 2 instruction", "Step 3 instruction"],
+                  "imageUrl": ""
+                }
+                """;
 
         // Builder for high-abstraction API
         var recipeAiService = AiServices.builder(RecipeAiServices.Standard.class)
@@ -111,7 +157,10 @@ class RecipeService {
 
         // Helper class for prompt templating
         var userMessage = PromptTemplate.from(userPromptTemplate)
-                .apply(Map.of("ingredients", ingredientsAsString))
+                .apply(Map.of(
+                    "ingredients", ingredientsAsString,
+                    "format", jsonFormat
+                ))
                 .toUserMessage();
 
         // The result is of type Recipe.class due to structured output

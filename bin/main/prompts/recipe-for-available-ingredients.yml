@@ -1,0 +1,105 @@
+name: Recipe Generator with Home Ingredients Preference
+description: Creates recipes using requested ingredients while prioritizing available home ingredients
+model: openai/gpt-4o
+modelParameters:
+  temperature: 0.7
+  max_tokens: 1500
+messages:
+  - role: system
+    content: >
+      You are a practical chef AI that creates recipes using requested ingredients while maximizing the use of ingredients already available at home.
+      Your goal is to create delicious, practical recipes that minimize the need for additional shopping.
+      Always prioritize using home ingredients when they complement the requested ingredients.
+      
+      IMPORTANT: You must properly handle and preserve international characters in ingredient names:
+      - German characters: ä, ö, ü, ß (e.g., "Spätzle", "Grünkohl", "Weißwurst")
+      - French characters: é, è, à, ç, ô, û, î, ï (e.g., "crème fraîche", "pâté", "naïve")
+      - Other special characters as needed for authentic ingredient and recipe names
+  - role: user
+    content: |
+      Create a recipe that includes the following requested ingredients plus prioritize using ingredients available at home:
+      
+      Requested Ingredients: """
+      {{ingredients}}
+      """
+      
+      Available at home (prefer these): """
+      {{availableIngredientsAtHome}}
+      """
+      
+      Add additional ingredients that are necessary for a good flavor or to create a more creative and complex meal.
+      The recipe should be translated to English, and with quantity in metric system.
+      
+      Guidelines:
+      - Use as many home ingredients as possible
+      - Include all or most of the requested ingredients
+      - Only suggest additional ingredients if absolutely necessary
+      - Create a practical, achievable recipe
+      - Ensure proper seasoning and cooking techniques
+      
+      Please provide the recipe in valid JSON format with the following structure:
+      {{format}}
+testData:
+  - ingredients: "salmon, asparagus"
+    availableIngredientsAtHome: "rice, lemon, garlic, olive oil, salt, pepper, butter"
+    expected: |
+      {
+        "name": "Lemon Garlic Salmon with Asparagus and Rice",
+        "description": "A healthy and elegant meal using fresh salmon and asparagus, enhanced with available home ingredients",
+        "ingredients": ["600g salmon fillets", "500g fresh asparagus, trimmed", "300g jasmine rice", "2 lemons, juiced and zested", "4 cloves garlic, minced", "60ml extra virgin olive oil", "30g butter", "Salt and black pepper to taste", "500ml water for rice"],
+        "instructions": ["Rinse rice and cook with water according to package directions", "Season salmon fillets with salt, pepper, and half the lemon juice", "Heat 30ml olive oil in a large pan over medium-high heat", "Cook salmon for 4-5 minutes per side until golden and cooked through", "Remove salmon and keep warm", "Add butter to the same pan, then add garlic and cook for 1 minute", "Add asparagus and cook for 4-5 minutes until tender-crisp", "Season asparagus with salt, pepper, remaining lemon juice and zest", "Serve salmon over rice with asparagus on the side", "Drizzle with remaining olive oil and garnish with lemon zest"],
+        "imageUrl": ""
+      }
+  - ingredients: "ground beef, onions"
+    availableIngredientsAtHome: "pasta, tomato sauce, cheese, herbs, garlic, olive oil"
+    expected: |
+      {
+        "name": "Classic Beef Pasta Bolognese",
+        "description": "A hearty pasta dish with ground beef and onions, using available pantry staples for a complete meal",
+        "ingredients": ["500g ground beef", "2 large onions, diced", "400g pasta (penne or spaghetti)", "400ml tomato sauce", "100g cheese, grated", "3 cloves garlic, minced", "45ml olive oil", "2 tsp mixed herbs (oregano, basil)", "Salt and pepper to taste", "250ml beef stock or water"],
+        "instructions": ["Cook pasta according to package directions, drain and set aside", "Heat olive oil in a large pan over medium heat", "Add diced onions and cook until soft and translucent, about 5 minutes", "Add minced garlic and cook for 1 minute until fragrant", "Add ground beef and cook, breaking it up, until browned", "Season with salt, pepper, and mixed herbs", "Add tomato sauce and stock, bring to a boil", "Reduce heat and simmer for 15-20 minutes until sauce thickens", "Combine cooked pasta with the beef sauce", "Serve hot topped with grated cheese"],
+        "imageUrl": ""
+      }
+evaluators:
+  - name: Home Ingredient Utilization
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Check if the recipe effectively utilizes available home ingredients:
+        - Maximizes use of ingredients already at home
+        - Includes the requested ingredients
+        - Minimizes need for additional shopping
+        - Creates a cohesive, practical recipe
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0
+  - name: Recipe Practicality
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Evaluate if the recipe is practical and achievable:
+        - Instructions are clear and sequential
+        - Cooking times and methods are realistic
+        - Ingredient proportions are balanced
+        - Recipe would actually work in a home kitchen
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0
+  - name: Overall Quality
+    uses: github/coherence

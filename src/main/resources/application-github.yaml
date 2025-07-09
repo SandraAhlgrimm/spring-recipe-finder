@@ -1,0 +1,19 @@
+# GitHub Models configuration (using OpenAI compatible API)
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${GITHUB_TOKEN}
+      base-url: https://models.inference.ai.azure.com
+      model-name: gpt-4o
+      temperature: 0.7
+    image-model:
+      api-key: ${GITHUB_TOKEN}
+      base-url: https://models.inference.ai.azure.com
+      model-name: dall-e-3
+    embedding-model:
+      api-key: ${GITHUB_TOKEN}
+      base-url: https://models.inference.ai.azure.com
+      model-name: text-embedding-3-small
+  # Disable Redis for GitHub Models profile since it requires external dependencies
+  community.redis:
+    enabled: false

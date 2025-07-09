@@ -1,0 +1,129 @@
+name: Recipe Generator for Specific Ingredients
+description: Creates creative recipes based on provided ingredients with proper JSON formatting
+model: openai/gpt-4o
+modelParameters:
+  temperature: 0.7
+  max_tokens: 1500
+messages:
+  - role: system
+    content: >
+      You are a creative chef AI that generates delicious recipes based on provided ingredients.
+      Your recipes should be practical, flavorful, and use the ingredients effectively.
+      Always provide responses in valid JSON format with complete ingredient quantities and clear instructions.
+      
+      IMPORTANT: You must properly handle and preserve international characters in ingredient names and recipe content:
+      - German characters: ä, ö, ü, ß (e.g., "Spätzle", "Grünkohl", "Weißwurst")
+      - French characters: é, è, à, ç, ô, û, î, ï (e.g., "crème fraîche", "pâté", "naïve")
+      - Other special characters as needed for authentic ingredient and recipe names
+      
+      When ingredients contain special characters, preserve them exactly in the output.
+  - role: user
+    content: |
+      Create a recipe that includes in the best case all of the following ingredients:
+      
+      Ingredients: """
+      {{ingredients}}
+      """
+      
+      Add additional ingredients that are necessary for a good flavor or to create a more creative and complex meal.
+      The recipe should be translated to English, and with quantity in metric system.
+      
+      IMPORTANT: If any ingredient names contain special characters (German: äöüß, French: éèàç, etc.), 
+      preserve them exactly as provided in the recipe output.
+      
+      Make sure to only generate recipes when you are very sure that the recipes would actually work.
+      Don't recommend using too much fat (like too much butter) or too little fat.
+      Ensure proper seasoning and cooking techniques.
+      
+      Please provide the recipe in valid JSON format with the following structure:
+      {{format}}
+      
+      Important guidelines:
+      - Include all provided ingredients when possible
+      - Add complementary ingredients for better flavor
+      - Provide realistic cooking times and temperatures
+      - Use metric measurements (grams, ml, liters)
+      - Make instructions clear and sequential
+      - Ensure the recipe is practical and achievable
+testData:
+  - ingredients: "tomatoes, pasta, garlic"
+    expected: |
+      {
+        "name": "Classic Garlic Tomato Pasta",
+        "description": "A simple yet flavorful pasta dish with fresh tomatoes and aromatic garlic",
+        "ingredients": ["400g pasta (spaghetti or penne)", "500g fresh tomatoes, diced", "4 cloves garlic, minced", "60ml extra virgin olive oil", "30g fresh basil leaves", "50g Parmesan cheese, grated", "Salt and black pepper to taste", "1 tsp red pepper flakes (optional)"],
+        "instructions": ["Bring a large pot of salted water to boil and cook pasta according to package directions", "While pasta cooks, heat olive oil in a large pan over medium heat", "Add minced garlic and cook for 1-2 minutes until fragrant", "Add diced tomatoes and cook for 8-10 minutes until they break down", "Season with salt, pepper, and red pepper flakes", "Drain pasta, reserving 120ml pasta water", "Add pasta to the tomato mixture and toss", "Add pasta water if needed for consistency", "Remove from heat and stir in fresh basil and Parmesan", "Serve immediately with extra Parmesan on the side"],
+        "imageUrl": ""
+      }
+  - ingredients: "chicken breast, rice, vegetables"
+    expected: |
+      {
+        "name": "Mediterranean Chicken and Rice Bowl",
+        "description": "A healthy and colorful one-bowl meal with seasoned chicken, fluffy rice, and fresh vegetables",
+        "ingredients": ["600g chicken breast, cut into strips", "300g jasmine rice", "200g bell peppers, sliced", "150g zucchini, diced", "100g cherry tomatoes, halved", "60ml olive oil", "2 tsp dried oregano", "1 tsp paprika", "3 cloves garlic, minced", "1 lemon, juiced", "600ml chicken stock", "Salt and pepper to taste", "Fresh parsley for garnish"],
+        "instructions": ["Season chicken with salt, pepper, oregano, and paprika", "Heat 30ml olive oil in a large pan and cook chicken strips until golden, about 6-8 minutes", "Remove chicken and set aside", "In the same pan, sauté garlic for 1 minute", "Add rice and toast for 2 minutes", "Add hot chicken stock and bring to boil", "Reduce heat, cover and simmer for 15 minutes", "In another pan, heat remaining oil and sauté vegetables for 5-7 minutes", "Return chicken to rice, add lemon juice", "Fluff rice with a fork and mix in vegetables", "Garnish with fresh parsley and serve hot"],
+        "imageUrl": ""
+      }
+  - ingredients: "Grünkohl, Spätzle, Weißwurst"
+    expected: |
+      {
+        "name": "Traditional German Spätzle with Grünkohl and Weißwurst",
+        "description": "Authentic German comfort food featuring kale, homemade pasta, and white sausage",
+        "ingredients": ["400g Spätzle (fresh or dried)", "500g Grünkohl (kale), chopped", "4 Weißwurst sausages", "100g bacon, diced", "2 onions, sliced", "60ml vegetable oil", "200ml vegetable stock", "100ml crème fraîche", "Salt, pepper, and nutmeg to taste"],
+        "instructions": ["Cook Spätzle according to package instructions and drain", "Heat oil in a large pan and cook bacon until crispy", "Add onions and cook until translucent", "Add Grünkohl and cook for 10 minutes", "Add stock and simmer until kale is tender", "In another pan, gently cook Weißwurst for 8-10 minutes", "Mix Spätzle with the kale mixture", "Stir in crème fraîche and season with salt, pepper, and nutmeg", "Serve with sliced Weißwurst on top"],
+        "imageUrl": ""
+      }
+  - ingredients: "fromage de chèvre, pâte feuilletée, épinards"
+    expected: |
+      {
+        "name": "Tarte aux Épinards et Chèvre",
+        "description": "French savory tart with goat cheese, spinach, and flaky pastry",
+        "ingredients": ["1 pâte feuilletée (puff pastry sheet)", "200g fromage de chèvre (goat cheese)", "300g épinards frais (fresh spinach)", "3 œufs (eggs)", "200ml crème fraîche", "1 oignon, émincé", "2 gousses d'ail, hachées", "30ml huile d'olive", "Sel, poivre, et noix de muscade"],
+        "instructions": ["Préchauffer le four à 200°C", "Étaler la pâte feuilletée dans un moule à tarte", "Faire revenir l'oignon et l'ail dans l'huile d'olive", "Ajouter les épinards et cuire jusqu'à ce qu'ils flétrissent", "Battre les œufs avec la crème fraîche", "Étaler les épinards sur la pâte", "Émietter le fromage de chèvre par-dessus", "Verser le mélange œufs-crème", "Cuire 30-35 minutes jusqu'à ce que la tarte soit dorée"],
+        "imageUrl": ""
+      }
+evaluators:
+  - name: Recipe Completeness
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Check that the recipe output contains all required elements:
+        - Valid JSON format
+        - Recipe name and description
+        - Complete ingredients list with quantities
+        - Step-by-step instructions
+        - Uses the provided ingredients effectively
+        - Includes realistic additional ingredients
+        - Instructions are clear and in logical order
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0
+  - name: Ingredient Usage
+    llm:
+      modelId: openai/gpt-4o-mini
+      prompt: |
+        Check if the recipe effectively uses the provided ingredients:
+        - All or most provided ingredients are included
+        - Additional ingredients complement the provided ones
+        - Proportions are realistic and balanced
+        
+        Your output should only be YES or NO on its own line.
+        
+        <output>
+        {{completion}}
+        </output>
+      choices:
+        - choice: 'YES'
+          score: 1
+        - choice: 'NO'
+          score: 0
+  - name: Culinary Quality
+    uses: github/coherence
